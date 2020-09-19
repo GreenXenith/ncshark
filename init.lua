@@ -30,11 +30,9 @@ for itemname, def in pairs(minetest.registered_items) do
 end
 
 -- Catch any new items
-local old_register = minetest.register_item
-minetest.register_item = function(itemname, def)
+nodecore.register_on_register_item(function(itemname, def)
 	register_shark(itemname, def)
-	return old_register(itemname, def)
-end
+end)
 
 local function adjacent_water(pos)
 	local a = 0
