@@ -82,7 +82,7 @@ minetest.register_on_mods_loaded(function()
 					calm = calm + (has_sponge and 1 or 0) -- Enjoys company of sponge
 					calm = calm + nodecore.get_node_light(data.pos) / 5 -- Prefers light
 					calm = calm - vector.length(vector.multiply(player:get_player_velocity(), {x = 1, y = 0, z = 1})) / 5 -- Not an adrenaline junkie
-					calm = math.floor(calm * math.max(1, CHANCE_CALM))
+					calm = math.floor(math.max(1, calm) * math.max(1, CHANCE_CALM))
 
 					-- Chomp
 					if CHANCE_BITE > 0 and math.random(1, CHANCE_BITE * calm) == 1 then
