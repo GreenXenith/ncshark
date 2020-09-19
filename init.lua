@@ -3,9 +3,12 @@ local mallets = {}
 local sharks = {}
 
 -- Internal settings (per-second; lower = more likely)
-local CHANCE_ACTION = 10 -- Probability of doing something while in inventory
+local CHANCE_ACTION = 8 -- Probability of doing something while in inventory
 local CHANCE_BITE = 5 -- Probability of biting the player
 local CHANCE_ESCAPE = 3 -- Probability of leaving the inventory
+local CHANCE_CALM = 2 -- Probability multiplier while calm (base chance * calmness * multiplier)
+local BITE_DMG = 1 -- Damage done when player is bit
+local SUBMERSED_COUNT = 2 -- Total adjacent water nodes to be considered submersed (should be 1-5)
 
 local function register_shark(itemname, def)
 	-- Only match not-hot mallet heads from other mods
@@ -54,34 +57,45 @@ minetest.register_on_mods_loaded(function()
 		chance = 1,
 		itemnames = mallets,
 		action = function(stack, data)
-			if data.pos and adjacent_water(data.pos) >= 2 then
+			if data.pos and adjacent_water(data.pos) >= SUBMERSED_COUNT then
 				return modname .. ":" .. stack:get_name():gsub(":", "__")
 			end
-		end
+		end,
 	})
 
 	nodecore.register_aism({
-		label = "bite or deshark",
+		label = "act or deshark",
 		interval = 1,
 		chance = 1,
 		itemnames = sharks,
 		action = function(stack, data)
-			if data.pos and adjacent_water(data.pos) < 2 then
+			if data.pos and adjacent_water(data.pos) < SUBMERSED_COUNT then
+				-- No longer submersed
 				return stack:get_name():sub(modname:len() + 2):gsub("__", ":")
-			elseif data.pos and data.inv and minetest.settings:get_bool(modname .. ".bite", true) then
+			elseif data.pos and data.inv and minetest.settings:get_bool(modname .. ".hostile", true) then
+				-- In inventory and submersed
 				if math.random(1, CHANCE_ACTION) == 1 then
+					local player = minetest.get_player_by_name(data.inv:get_location().name)
+					-- Calmness based on environment
+					local calm = 1
+					local has_sponge = data.inv:contains_item("main", "nc_sponge:sponge_living") or data.inv:contains_item("main", "nc_sponge:sponge_wet")
+					calm = calm + (has_sponge and 1 or 0) -- Enjoys company of sponge
+					calm = calm + nodecore.get_node_light(data.pos) / 5 -- Prefers light
+					calm = calm - vector.length(vector.multiply(player:get_player_velocity(), {x = 1, y = 0, z = 1})) / 5 -- Not an adrenaline junkie
+					calm = math.floor(calm * math.max(1, CHANCE_CALM))
+
 					-- Chomp
-					if math.random(1, CHANCE_BITE) == 1 then
-						nodecore.addphealth(minetest.get_player_by_name(data.inv:get_location().name), -1, modname .. "_bite")
+					if CHANCE_BITE > 0 and math.random(1, CHANCE_BITE * calm) == 1 then
+						nodecore.addphealth(player, -BITE_DMG, modname .. "_bite")
 					end
 
 					-- Escapé
-					if math.random(1, CHANCE_ESCAPE) == 1 then
+					if CHANCE_ESCAPE > 0 and math.random(1, CHANCE_ESCAPE * calm) == 1 then
 						nodecore.item_eject(data.pos, stack:take_item(1))
 					end
 				end
 				return stack
 			end
-		end
+		end,
 	})
 end)
