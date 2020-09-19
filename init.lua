@@ -2,6 +2,11 @@ local modname = minetest.get_current_modname()
 local mallets = {}
 local sharks = {}
 
+-- Internal settings (per-second; lower = more likely)
+local CHANCE_ACTION = 10 -- Probability of doing something while in inventory
+local CHANCE_BITE = 5 -- Probability of biting the player
+local CHANCE_ESCAPE = 3 -- Probability of leaving the inventory
+
 local function register_shark(itemname, def)
 	-- Only match not-hot mallet heads from other mods
 	if not itemname:match(modname .. ":") and itemname:match("toolhead_mallet") and not def.groups.damage_touch then
@@ -64,13 +69,15 @@ minetest.register_on_mods_loaded(function()
 			if data.pos and adjacent_water(data.pos) < 2 then
 				return stack:get_name():sub(modname:len() + 2):gsub("__", ":")
 			elseif data.pos and data.inv and minetest.settings:get_bool(modname .. ".bite", true) then
-				if math.random(1, 1) == 1 then
+				if math.random(1, CHANCE_ACTION) == 1 then
 					-- Chomp
-					nodecore.addphealth(minetest.get_player_by_name(data.inv:get_location().name), -1, modname .. "_bite")
-					if math.random(1, 3) == 1 then
-						-- Escapé
-						local taken = stack:take_item(1)
-						nodecore.item_eject(data.pos, taken)
+					if math.random(1, CHANCE_BITE) == 1 then
+						nodecore.addphealth(minetest.get_player_by_name(data.inv:get_location().name), -1, modname .. "_bite")
+					end
+
+					-- Escapé
+					if math.random(1, CHANCE_ESCAPE) == 1 then
+						nodecore.item_eject(data.pos, stack:take_item(1))
 					end
 				end
 				return stack
